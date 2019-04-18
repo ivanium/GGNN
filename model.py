@@ -1,65 +1,47 @@
-import time
 import math
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-class NodeApplyModule(nn.Module):
-    def __init__(self, out_feats, activation=None, bias=True):
-        super(NodeApplyModule, self).__init__()
-        if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_feats))
-        else:
-            self.bias = None
-        self.activation = activation
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        if self.bias is not None:
-            stdv = 1. / math.sqrt(self.bias.size(0))
-            self.bias.data.uniform_(-stdv, stdv)
-
-    def forward(self, nodes):
-        h = nodes.data['h']
-        if self.bias is not None:
-            h = h + self.bias
-        if self.activation:
-            h = self.activation(h)
-        return {'h': h}
+import dgl
+import dgl.function as fn
 
 
 class GGNN(nn.Module):
     def __init__(self,
                  g,
-                 n_classes,
+                 num_classes,
+                 num_edge_type,
                  msg_dim=10,
                  hidden_dim=10):
         super(GGNN, self).__init__()
         self.g = g
         self.msg_dim = msg_dim
         self.hidden_dim = hidden_dim
-        self.n_classes = n_classes
+        self.num_classes = num_classes
         self.edge_matrix = nn.Embedding(
             num_embeddings=num_edge_type, embedding_dim=msg_dim * hidden_dim)
         self.gru = nn.GRU(input_size=msg_dim, hidden_size=hidden_dim)
         # Output Model
-        self.out = nn.Linear(hidden_dim, n_classes)
+        self.out = nn.Linear(hidden_dim, num_classes)
+        self.reset_parameters()
 
-    def ggnn_msg(self, edge):
+    def ggnn_msg(self, edges):
         A = self.edge_matrix(
-            edge.data['e']).view(-1, self.msg_dim, self.hidden_dim)
-        msg = torch.dmm(A, edge.src['h'])
+            edges.data['e']).view(-1, self.msg_dim, self.hidden_dim)
+        msg = torch.bmm(A, edges.src['h'].unsqueeze(2))
         return {'msg': msg}
 
     def apply_func(self, nodes):
-        return {'h': self.gru(
-            node.data['msg'].unsqueeze(0),
-            node.data['h'].unsqueeze(0)
-        )}
+        _, h = self.gru(
+            nodes.data['m'].squeeze(2).unsqueeze(0),
+            nodes.data['h'].unsqueeze(0)
+        )
+        return {'h': h[0]}
 
     def reset_parameters(self):
         pass
+        # self.edge_matrix.data.uniform(0.0, 0.02)
+        # self.gru.data.uniform(0.0, 0.02)
 
     def forward(self, features):
         self.g.ndata['h'] = features
@@ -67,6 +49,7 @@ class GGNN(nn.Module):
                           reduce_func=fn.sum(msg='msg', out='m'),
                           apply_node_func=self.apply_func)
         h = self.g.ndata.pop('h')
+        h = self.out(h)
         return h
 
 

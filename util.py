@@ -4,22 +4,25 @@ import numpy as np
 import pickle as pkl
 import networkx as nx
 import scipy.sparse as sp
-import os, sys
+import os
+import sys
 
 import dgl
 
 _urls = {
-    'cora' : 'dataset/cora_raw.zip',
-    'citeseer' : 'dataset/citeseer.zip',
-    'pubmed' : 'dataset/pubmed.zip',
-    'cora_binary' : 'dataset/cora_binary.zip',
+    'cora': 'dataset/cora_raw.zip',
+    'citeseer': 'dataset/citeseer.zip',
+    'pubmed': 'dataset/pubmed.zip',
+    'cora_binary': 'dataset/cora_binary.zip',
 }
+
 
 def _pickle_load(pkl_file):
     if sys.version_info > (3, 0):
         return pkl.load(pkl_file, encoding='latin1')
     else:
         return pkl.load(pkl_file)
+
 
 class GraphDataset(object):
     def __init__(self, name):
@@ -55,14 +58,16 @@ class GraphDataset(object):
                 objects.append(_pickle_load(f))
 
         allx, ally, graph = tuple(objects)
-        train_idx_reorder = _parse_index_file("{}/ind.{}.train.index".format(root, self.name))
-        test_idx_reorder  = _parse_index_file("{}/ind.{}.test.index".format(root, self.name))
-        val_idx_reorder   = _parse_index_file("{}/ind.{}.val.index".format(root, self.name))
+        train_idx_reorder = _parse_index_file(
+            "{}/ind.{}.train.index".format(root, self.name))
+        test_idx_reorder = _parse_index_file(
+            "{}/ind.{}.test.index".format(root, self.name))
+        val_idx_reorder = _parse_index_file(
+            "{}/ind.{}.val.index".format(root, self.name))
 
         test_idx_range = np.sort(test_idx_reorder)
 
         features = sp.vstack(allx).tolil()
-        print(features.shape)
         features[test_idx_reorder, :] = features[test_idx_range, :]
         graph = nx.DiGraph(nx.from_dict_of_lists(graph))
 
@@ -92,15 +97,19 @@ class GraphDataset(object):
         print('  NumEdges: {}'.format(self.graph.number_of_edges()))
         print('  NumFeats: {}'.format(self.features.shape[1]))
         print('  NumClasses: {}'.format(self.num_labels))
-        print('  NumTrainingSamples: {}'.format(len(np.nonzero(self.train_mask)[0])))
-        print('  NumValidationSamples: {}'.format(len(np.nonzero(self.val_mask)[0])))
-        print('  NumTestSamples: {}'.format(len(np.nonzero(self.test_mask)[0])))
+        print('  NumTrainingSamples: {}'.format(
+            len(np.nonzero(self.train_mask)[0])))
+        print('  NumValidationSamples: {}'.format(
+            len(np.nonzero(self.val_mask)[0])))
+        print('  NumTestSamples: {}'.format(
+            len(np.nonzero(self.test_mask)[0])))
 
     def __getitem__(self, idx):
         return self
 
     def __len__(self):
         return 1
+
 
 def _preprocess_features(features):
     """Row-normalize feature matrix and convert to tuple representation"""
@@ -109,7 +118,8 @@ def _preprocess_features(features):
     r_inv[np.isinf(r_inv)] = 0.
     r_mat_inv = sp.diags(r_inv)
     features = r_mat_inv.dot(features)
-    return np.array(features.todense())
+    return np.array(features.todense())[:, :10] # limit feature dimension to 10
+
 
 def _parse_index_file(filename):
     """Parse index file."""
@@ -118,11 +128,13 @@ def _parse_index_file(filename):
         index.append(int(line.strip()))
     return index
 
+
 def _sample_mask(idx, l):
     """Create mask."""
     mask = np.zeros(l)
     mask[idx] = 1
     return mask
+
 
 def load_data(dataset):
     data = GraphDataset(dataset)
