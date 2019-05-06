@@ -26,29 +26,20 @@ class GGNN(nn.Module):
         self.reset_parameters()
 
     def ggnn_msg(self, edges):
-        stt = time.time()
         A = self.edge_matrix(
             edges.data['e']).view(-1, self.msg_dim, self.hidden_dim)
         msg = torch.bmm(A, edges.src['h'].unsqueeze(2))
-        end = time.time()
-        print("message func", end-stt)
         return {'msg': msg}
 
     def reduce_sum(self, msg, out):
-        stt = time.time()
         res = fn.sum(msg, out)
-        end = time.time()
-        print("reduce func", end-stt)
         return res
 
     def apply_func(self, nodes):
-        stt = time.time()
         _, h = self.gru(
             nodes.data['m'].squeeze(2).unsqueeze(0),
             nodes.data['h'].unsqueeze(0)
         )
-        end = time.time()
-        print("apply func", end-stt)
         return {'h': h[0]}
 
     def reset_parameters(self):

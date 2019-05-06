@@ -25,6 +25,8 @@ def evaluate(model, features, labels, mask):
 
 
 def main(args):
+    # strategy 0 is similar with DGL version, but strategy 1 is much faster
+    strategy = 1
     data = load_data(args.dataset)
     # data = load_data(args)
 
@@ -58,12 +60,15 @@ def main(args):
         val_mask = val_mask.cuda()
         test_mask = test_mask.cuda()
 
-    model = GGNN(g, num_classes, num_edge_type, feature_dim, feature_dim)
+    model = GGNN(g, num_classes, num_edge_type, feature_dim, feature_dim, strategy=strategy)
 
     if cuda:
         model = model.cuda()
-        for i in range(num_edge_type):
-                model.edge_matrix[i] = model.edge_matrix[i].cuda()
+        if strategy == 0:
+            model.edge_matrix = model.edge_matrix.cuda()
+        elif strategy == 1:
+            for i in range(num_edge_type):
+                    model.edge_matrix[i] = model.edge_matrix[i].cuda()
 
     loss_criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(),
@@ -76,12 +81,16 @@ def main(args):
         if epoch >= 3:
             t0 = time.time()
 
+        stt = time.time()
         logits = model(features)
         loss = loss_criterion(logits[train_mask], labels[train_mask])
+        end2 = time.time()
 
         optimizer.zero_grad()
         loss.backward()
+        end3 = time.time()
         optimizer.step()
+        print("bp", end2-stt, end3-end2)
 
         if epoch >= 3:
             dur.append(time.time() - t0)
