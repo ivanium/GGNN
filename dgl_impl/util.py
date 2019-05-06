@@ -118,7 +118,7 @@ def _preprocess_features(features):
     r_inv[np.isinf(r_inv)] = 0.
     r_mat_inv = sp.diags(r_inv)
     features = r_mat_inv.dot(features)
-    return np.array(features.todense())[:, :10] # limit feature dimension to 10
+    return np.array(features.todense())[:, :20] # limit feature dimension to 20
 
 
 def _parse_index_file(filename):

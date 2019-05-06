@@ -91,7 +91,7 @@ def main(args):
                                              acc, num_edges / np.mean(dur) / 1000))
 
     print()
-    acc = evaluate(model, features, lables, test_mask)
+    acc = evaluate(model, features, labels, test_mask)
     print("Test Accuracy {:.4f}".format(acc))
 
 
